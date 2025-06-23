@@ -6,12 +6,12 @@ rust-version = "1.85"
 
 
 [dependencies]
-gstreamer = "0.23"
-gstreamer-app = "0.23" # appsink
-gstreamer-base = "0.23" # basesrc
+gstreamer = "0.23.7"
+gstreamer-app = "0.23.5" # appsink
+gstreamer-base = "0.23.5" # basesrc
 iced_video_player = {git = "https://github.com/jazzfool/iced_video_player.git", branch="master"}
 iced = { version = "0.13.1", features = ["image", "advanced", "wgpu", "svg"] }
-url = "2"
+url = "2.5.4"
 rfd = "0.15.3"
 essi-ffmpeg = { git = "https://github.com/MrAdhit/essi-ffmpeg" }
 time = { version = "0.3.37", features = [ "parsing" ]}

@@ -477,7 +477,7 @@ impl<Message, Theme, Renderer: iced::advanced::Renderer + iced::advanced::text::
 
                 let bounds = layout.bounds();
                 if cursor.is_over(bounds) {
-                    println!("got cursor drag thingy");
+                    // println!("got cursor drag thingy");
                     let mut view_position = layout.position();
                     let view_size = layout.bounds();
 
