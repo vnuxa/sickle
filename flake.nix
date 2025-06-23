@@ -99,10 +99,10 @@
 
         verbose = true;
         doCheck = false;
-        # cargoLock = {
-        #   lockFile = ./Cargo.lock;
-        #   allowBuiltinFetchGit = true;
-        # };
+        cargoLock = {
+          lockFile = ./Cargo.lock;
+          allowBuiltinFetchGit = true;
+        };
       };
     in {
       packages.sickle = sickle_package;
