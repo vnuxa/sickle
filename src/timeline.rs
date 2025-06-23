@@ -28,6 +28,7 @@ use iced::advanced::graphics::core;
 use iced::advanced::text::Renderer as _;
 
 
+use crate::Config;
 use crate::Messages;
 
 
@@ -39,6 +40,7 @@ pub struct Timeline<Message> {
     pub pressed_start:  bool,
     pub pressed_end:  bool,
     pub pressed_anywhere:  bool,
+    pub config: Config,
 
     pub update_start: Box<dyn Fn(f32) -> Message>,
     pub update_end: Box<dyn Fn(f32) -> Message>,
@@ -54,6 +56,25 @@ pub struct Timeline<Message> {
     pub mouse: f32,
     pub mouse_content: String,
     pub mouse_move: Box<dyn Fn(f32) -> Message>,
+}
+
+pub fn hex_to_rgb(hex: &str) -> Color {
+
+    let r = u8::from_str_radix(&hex[1..3], 16).unwrap();
+    let g = u8::from_str_radix(&hex[3..5], 16).unwrap();
+    let b = u8::from_str_radix(&hex[5..7], 16).unwrap();
+
+
+    Color::from_rgb8(r, g, b)
+}
+pub fn hex_to_rgba(hex: &str, alpha: f32) -> Color {
+
+    let r = u8::from_str_radix(&hex[1..3], 16).unwrap();
+    let g = u8::from_str_radix(&hex[3..5], 16).unwrap();
+    let b = u8::from_str_radix(&hex[5..7], 16).unwrap();
+
+
+    Color::from_rgba8(r, g, b, alpha)
 }
 
 impl<Message, Theme, Renderer: iced::advanced::Renderer + iced::advanced::text::Renderer<Font = iced::Font>> Widget<Message, Theme, Renderer> for Timeline<Message>{
@@ -75,7 +96,7 @@ impl<Message, Theme, Renderer: iced::advanced::Renderer + iced::advanced::text::
         let border = renderer.fill_quad(renderer::Quad {
             bounds: Rectangle::new(view_position, Size { width: view_size.width, height: 60.0 }),
             border: Border {
-                color: Color::from_rgb8(178, 135, 161),
+                color: hex_to_rgb(&self.config.main_color),
                 width: 2.5,
                 radius: Radius::new(0.0),
             },
@@ -84,7 +105,7 @@ impl<Message, Theme, Renderer: iced::advanced::Renderer + iced::advanced::text::
                 offset: Vector::ZERO,
                 blur_radius: 0.0,
             }
-        }, Background::Color(Color::from_rgb8(17, 17, 17)));
+        }, Background::Color(hex_to_rgb(&self.config.background_color)));
 
         let start_portion = view_size.width / (self.duration / self.start);
         let end_portion = view_size.width / (self.duration / self.end);
@@ -100,7 +121,11 @@ impl<Message, Theme, Renderer: iced::advanced::Renderer + iced::advanced::text::
             shadow: Shadow::default()
         },
             // Background::Color(Color::from_rgba8(255, 255, 255, 0.25))
-            Background::Color(Color::from_rgba8(130, 159, 98, 0.15))
+            Background::Color(
+                hex_to_rgba(&self.config.timeline_color, 0.15)
+                // Color::from_rgba8(130, 159, 98, 0.15)
+
+            )
 
 
         );
@@ -113,7 +138,8 @@ impl<Message, Theme, Renderer: iced::advanced::Renderer + iced::advanced::text::
             shadow: Shadow::default()
 
         },
-            Background::Color(Color::from_rgba8(130, 159, 98, 1.0))
+            hex_to_rgb(&self.config.timeline_color)
+            // Background::Color(Color::from_rgba8(130, 159, 98, 1.0))
 
         );
 
@@ -125,7 +151,8 @@ impl<Message, Theme, Renderer: iced::advanced::Renderer + iced::advanced::text::
             shadow: Shadow::default()
 
         },
-            Background::Color(Color::from_rgba8(130, 159, 98, 1.0))
+            hex_to_rgb(&self.config.timeline_color),
+            // Background::Color(Color::from_rgba8(130, 159, 98, 1.0))
 
         );
 
@@ -139,7 +166,8 @@ impl<Message, Theme, Renderer: iced::advanced::Renderer + iced::advanced::text::
             shadow: Shadow::default()
 
         },
-            Background::Color(Color::from_rgba8(178, 135, 161, 0.75))
+            hex_to_rgba(&self.config.main_color, 0.75)
+            // Background::Color(Color::from_rgba8(178, 135, 161, 0.75))
 
         );
 
@@ -159,8 +187,9 @@ impl<Message, Theme, Renderer: iced::advanced::Renderer + iced::advanced::text::
                     shadow: Shadow::default()
 
                 },
-                    Background::Color(Color::from_rgba8(14, 14, 14, 0.95))
-
+                    Background::Color(
+                        hex_to_rgba(&self.config.hover_background, 0.95)
+                    )
                 );
 
                 let text = renderer.fill_text(
@@ -176,7 +205,8 @@ impl<Message, Theme, Renderer: iced::advanced::Renderer + iced::advanced::text::
                         content: self.mouse_content.clone(),
                     },
                     Point { x: mouse_position.x + 60.0, y: mouse_position.y + 15.0 },
-                    Color::from_rgba8(178, 135, 161, 1.0),
+                    // Color::from_rgba8(178, 135, 161, 1.0),
+                    hex_to_rgb(&self.config.main_color),
                     bounds,
 
                 );
@@ -275,7 +305,6 @@ impl<Message, Theme, Renderer: iced::advanced::Renderer + iced::advanced::text::
                 text,
                 ..
             }) => {
-                println!("key is {:?}", key);
                 match key {
                     Key::Named(named) => match named {
                         Named::Space => {

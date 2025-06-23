@@ -81,9 +81,11 @@
         postInstall =
           #bash
           ''
-            wrapProgram "$out/bin/sickle"\
-              --prefix CARGO_MANIFEST_DIR : "${self}"\
-              --prefix LD_LIBRARY_PATH : ${
+            install -Dm644 ../data/sickle.desktop $out/share/applications/
+            install -Dm644 ../data/sickle.desktop $out/share/icons/hicolor/scalable/apps/
+                    wrapProgram "$out/bin/sickle"\
+                      --prefix CARGO_MANIFEST_DIR : "${self}"\
+                      --prefix LD_LIBRARY_PATH : ${
               pkgs.lib.makeLibraryPath (with pkgs; [
                 libxkbcommon
                 vulkan-loader
@@ -92,6 +94,7 @@
                 xorg.libXi
               ])
             }
+
           '';
 
         verbose = true;

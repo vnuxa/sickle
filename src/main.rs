@@ -1,4 +1,6 @@
-use std::{env::home_dir, fs, path::PathBuf, string, time::Duration};
+use std::io::Read;
+use std::str::FromStr;
+use std::{env::home_dir, path::PathBuf, string, time::Duration};
 
 use std::os::unix::fs::MetadataExt;
 use essi_ffmpeg::FFmpeg;
@@ -6,7 +8,9 @@ use iced::{widget::{button, Column, Container, Row, Svg}, window::Settings, Alig
 use iced_video_player::{Position, Video, VideoPlayer};
 use iced::widget;
 use rfd::FileDialog;
-use timeline::Timeline;
+use timeline::{hex_to_rgb, hex_to_rgba, Timeline};
+use toml::Table;
+use std::fs::{self, read_to_string, File};
 
 use gstreamer as gst;
 use gstreamer_app as gst_app;
@@ -20,12 +24,55 @@ use clap::Parser;
 #[command(version, about, long_about = None)]
 struct Cli {
     /// The file you want to edit
-    #[arg(short, long)]
     file: Option<String>
+}
+
+
+#[derive(Clone)]
+pub struct Config {
+    main_color: String,
+    background_color: String,
+    timeline_color: String,
+    hover_background: String,
+
+}
+
+impl Default for Config {
+    fn default() -> Self {
+        Self {
+            main_color: "#B287A1".to_string(),
+            background_color: "#111111".to_string(),
+            timeline_color: "#829f62".to_string(),
+            hover_background: "#0E0E0E".to_string(),
+        }
+    }
 }
 
 fn main() {
     let cli = Cli::parse();
+    let mut config = Config::default();
+    let mut config_path = home_dir().unwrap();
+    config_path.push(".config/");
+    config_path.push("sickle/");
+    if config_path.exists() {
+        config_path.push("config.toml");
+        let mut file = File::open(config_path).expect("Expected config.toml in ~/.config/sickle/");
+        let mut string_buffer = String::new();
+        file.read_to_string(&mut string_buffer).unwrap();
+        let mut toml = Table::from_str(&string_buffer).unwrap();
+        if let Some(color) = toml.get("main_color") {
+            config.main_color = color.as_str().unwrap().to_string();
+        }
+        if let Some(color) = toml.get("background_color") {
+            config.background_color = color.as_str().unwrap().to_string();
+        }
+        if let Some(color) = toml.get("timeline_color") {
+            config.timeline_color = color.as_str().unwrap().to_string();
+        }
+        if let Some(color) = toml.get("hover_background") {
+            config.hover_background = color.as_str().unwrap().to_string();
+        }
+    }
 
     let mut file = None;
     if let Some(cli_file) = cli.file {
@@ -58,7 +105,7 @@ fn main() {
         .settings(app_settings)
         .style(|state, theme| {
             iced::application::Appearance {
-                background_color: Color::from_rgb8(17, 17, 17),
+                background_color: hex_to_rgb(&state.config.background_color),
                 text_color: Color::from_rgb(1.0, 1.0, 1.0)
             }
         })
@@ -114,6 +161,7 @@ fn main() {
                 video_time: time::Duration::seconds_f32(video.duration().as_secs_f32()),
                 video,
                 old_file,
+                config,
             };
             (state, Task::none())
         });
@@ -127,6 +175,7 @@ struct App {
     cursor_position: f32,
     video_length: f32,
     video_time: time::Duration,
+    config: Config,
 
     start: f32,
     end: f32,
@@ -184,6 +233,7 @@ impl Default for App {
             pressed_end: false,
             pressed_anywhere: false,
             video_time: time::Duration::seconds_f32(video.duration().as_secs_f32()),
+            config: Config::default(),
             video,
 
         }
@@ -214,24 +264,23 @@ fn view(app: &App) -> iced::Element<Messages> {
                 .push(
                     button::Button::new(
                         Svg::from_path( if app.video.paused() {
-                            "play-symbolic.svg"
+                            "data/play-symbolic.svg"
                         } else {
-                            "pause-symbolic.svg"
+                            "data/pause-symbolic.svg"
                         })
                             .width(Length::Fixed(50.0))
                             .height(Length::Fixed(50.0))
                             // .content_fit(ContentFit::Cover)
                             .style(|state, theme| {
                                 widget::svg::Style {
-                                    color: Some(Color::from_rgba8(178, 135, 161, 0.25)),
+                                    color: Some(hex_to_rgba(&app.config.main_color, 0.25)),
                                 }
                             })
                     )
                         .style(|state, theme| {
                             widget::button::Style {
-                                background: Some(Background::Color(Color::from_rgba8(178, 135, 161, 0.15))),
-                                text_color:
-                                Color::from_rgba8(178, 135, 161, 0.75),
+                                background: Some(Background::Color(hex_to_rgba(&app.config.main_color, 0.15))),
+                                text_color: hex_to_rgba(&app.config.main_color, 0.75),
                                 border: Border::default().rounded(10.0),
                                 shadow: Shadow::default(),
                             }
@@ -251,7 +300,7 @@ fn view(app: &App) -> iced::Element<Messages> {
                             // (app.video_time.as_seconds_f32() - app.video_time.whole_seconds() as f32),
                             (app.video_time.as_seconds_f32() - app.video_time.whole_seconds() as f32) * 1000.0,
                         ))
-                        .color( Color::from_rgb8(178, 135, 161))
+                        .color(hex_to_rgb(&app.config.main_color))
 
 
                     )
@@ -259,6 +308,7 @@ fn view(app: &App) -> iced::Element<Messages> {
                     // button("pause").on_press(Messages::PlayPause))
                 .push(
                     Timeline {
+                        config: app.config.clone(),
                         duration: app.video_length,
                         mouse: app.mouse_position,
                         mouse_content: app.mouse_content.clone(),
@@ -282,7 +332,7 @@ fn view(app: &App) -> iced::Element<Messages> {
                 )
                 .push(
                     button::Button::new(
-                        Svg::from_path("scissors-symbolic.svg")
+                        Svg::from_path("data/scissors-symbolic.svg")
                             .width(Length::Fixed(50.0))
                             .height(Length::Fixed(50.0))
                             // .width(Length::Fixed(20.0))
@@ -290,14 +340,14 @@ fn view(app: &App) -> iced::Element<Messages> {
                             // .content_fit(ContentFit::Cover)
                             .style(|state, theme| {
                                 widget::svg::Style {
-                                    color: Some(Color::from_rgba8(178, 135, 161, 0.25)),
+                                    color: Some(hex_to_rgba(&app.config.main_color, 0.25)),
                                 }
                             })
                     )
                         .style(|state, theme| {
                             widget::button::Style {
-                                background: Some(Background::Color(Color::from_rgba8(178, 135, 161, 0.15))),
-                                text_color: Color::from_rgba8(178, 135, 161, 0.75),
+                                background: Some(Background::Color(hex_to_rgba(&app.config.main_color, 0.15))),
+                                text_color: hex_to_rgba(&app.config.main_color, 0.15),
                                 border: Border::default().rounded(10.0),
                                 shadow: Shadow::default(),
                             }

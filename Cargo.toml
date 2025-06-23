@@ -2,6 +2,8 @@
 name = "sickle"
 version = "0.1.0"
 edition = "2024"
+rust-version = "1.85"
+
 
 [dependencies]
 gstreamer = "0.23"
@@ -14,3 +16,4 @@ rfd = "0.15.3"
 essi-ffmpeg = { git = "https://github.com/MrAdhit/essi-ffmpeg" }
 time = { version = "0.3.37", features = [ "parsing" ]}
 clap = { version = "4.5.40", features = ["derive"] }
+toml = {git = "https://github.com/toml-rs/toml.git", branch="main"}
