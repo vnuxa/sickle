@@ -99,6 +99,8 @@
 
         verbose = true;
         doCheck = false;
+
+        useFetchCargoVendor = true;
         cargoLock = {
           lockFile = ./Cargo.lock;
           allowBuiltinFetchGit = true;

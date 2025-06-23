@@ -533,10 +533,6 @@ fn update(app: &mut App, message: Messages)  {
                             "-f",
                             "rawvideo"
                         ])
-                        .args([
-                            "-y",
-                            "NUL"
-                        ])
                         .inspect_args(|args| {
                             dbg!(args);
                         });
