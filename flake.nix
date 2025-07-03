@@ -101,6 +101,8 @@
         doCheck = false;
 
         useFetchCargoVendor = true;
+
+        cargoHash = "sha256-ckotvpQw3WfvJ2YXR/XKT7LamGj7kLtGwMR/qrXpmYc=";
         cargoLock = {
           lockFile = ./Cargo.lock;
           allowBuiltinFetchGit = true;
