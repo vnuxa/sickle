@@ -49,6 +49,7 @@ pub struct Timeline<Message> {
     pub toggle_end: Box<dyn Fn(bool) -> Message>,
 
     pub set_time: Box<dyn Fn(f32) -> Message>,
+    pub positional_update: Box<dyn Fn(f32) -> Message>,
     pub update_anywhere: Box<dyn Fn(bool) -> Message>,
 
     pub play_pause: Box<dyn Fn() -> Message>,
@@ -89,8 +90,6 @@ impl<Message, Theme, Renderer: iced::advanced::Renderer + iced::advanced::text::
             viewport: &iced::Rectangle,
         ) {
 
-        // println!("position is {:?}", layout.position());
-        // println!("viewport size is {:?}", viewport);
         let mut view_position = layout.position();
         let view_size = layout.bounds();
         let border = renderer.fill_quad(renderer::Quad {
@@ -109,7 +108,6 @@ impl<Message, Theme, Renderer: iced::advanced::Renderer + iced::advanced::text::
 
         let start_portion = view_size.width / (self.duration / self.start);
         let end_portion = view_size.width / (self.duration / self.end);
-        // println!("end portion: {:?} and the other thing {:?}, whole portion: {:?}", end_portion, view_size.x / (self.duration / self.end), view_size);
         let mut handle_start_position = view_position;
         handle_start_position.x = view_position.x + start_portion;
         let mut handle_end_position = view_position;
@@ -386,28 +384,15 @@ impl<Message, Theme, Renderer: iced::advanced::Renderer + iced::advanced::text::
                     let view_size = layout.bounds();
 
                     let Some(position) = cursor.position() else { return core::event::Status::Ignored };
-                    // println!("cursor position: {:?} view size {:?}", position, view_size);
                     let mut x_position = position.x - view_position.x;
-                    // if position.x > (view_size.width + view_position.x - 7.0) {
-                    //     x_position = view_size.width - 7.0;
-                    // }
                     if position.x > (view_size.x + (view_size.width / (self.duration / self.end)) - 20.0) {
                         x_position = (view_size.width / (self.duration / self.end)) - 20.0;
                     } else if position.x < view_position.x {
                         x_position = 0.0;
                     }
                     let mut new_position = x_position / (view_size.width ) ;
-                    // if new_position < 0.0 {
-                    //     new_position = 0.0
-                    // } else if new_position > 1.0 {
-                    //     new_position = 1.0
-                    // }
-                    // println!("new position: {:?}", new_position);
-                    // println!("new start: {:?}", self.duration * new_position);
-                    // self.start = self.duration * new_position;
-                    // let message = (self.update_start)(self.duration * new_position);
-                    // shell.publish(message);
-                    shell.publish((self.update_start)(self.duration * new_position));
+                    shell.publish((self.positional_update)(self.duration * new_position));
+
                     return core::event::Status::Captured;
                 }
                 if self.pressed_end {
@@ -422,20 +407,12 @@ impl<Message, Theme, Renderer: iced::advanced::Renderer + iced::advanced::text::
                         x_position =  (view_size.width / (self.duration / self.start)) + 18.0;
                     }
                     let mut new_position = x_position / (view_size.width ) ;
-                    // if new_position < 0.0 {
-                    //     new_position = 0.0
-                    // } else if new_position > 1.0 {
-                    //     new_position = 1.0
-                    // }
-                    // println!("new position: {:?}", new_position);
-                    // println!("new start: {:?}", self.duration * new_position);
-                    // self.end= self.duration * new_position;
-                    shell.publish((self.update_end)(self.duration * new_position));
+
+                    shell.publish((self.positional_update)(self.duration * new_position));
                     return core::event::Status::Captured;
                 }
                 if self.pressed_anywhere {
 
-                    // println!("pressed anywehre is {:?}", self.pressed_anywhere);
                     let view_position = layout.position();
                     let view_size = layout.bounds();
 
@@ -448,7 +425,8 @@ impl<Message, Theme, Renderer: iced::advanced::Renderer + iced::advanced::text::
                     }
 
                     let mut new_position = x_position / (view_size.width ) ;
-                    shell.publish((self.set_time)(self.duration * new_position));
+
+                    shell.publish((self.positional_update)(self.duration * new_position));
                     return core::event::Status::Captured;
                 }
 
@@ -477,7 +455,6 @@ impl<Message, Theme, Renderer: iced::advanced::Renderer + iced::advanced::text::
 
                 let bounds = layout.bounds();
                 if cursor.is_over(bounds) {
-                    // println!("got cursor drag thingy");
                     let mut view_position = layout.position();
                     let view_size = layout.bounds();
 
@@ -496,26 +473,14 @@ impl<Message, Theme, Renderer: iced::advanced::Renderer + iced::advanced::text::
                         width: 18.0,
                         height: 60.0
                     }) {
-                        // println!("itss over the other thingy!");
                         shell.publish((self.toggle_start)(true));
                         return core::event::Status::Captured;
-                        // let Some(position) = cursor.position() else { return core::event::Status::Ignored };
-                        // let mut new_position = view_size.x / position.x;
-                        // if new_position < 0.0 {
-                        //     new_position = 0.0
-                        // } else if new_position > 1.0 {
-                        //     new_position = 1.0
-                        // }
-                        // println!("new position: {:?}", new_position);
-                        // println!("new start: {:?}", self.duration * new_position);
-                        // self.start = self.duration * new_position
                     } else if cursor.is_over(Rectangle {
                         x: handle_end_position - 11.0,
                         y: view_position.y,
                         width: 18.0,
                         height: 60.0
                     }) {
-                        // println!("clicked end");
                         shell.publish((self.toggle_end)(true));
                         return core::event::Status::Captured;
 

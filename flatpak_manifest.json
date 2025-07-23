@@ -28,14 +28,11 @@
             "build-options": {
                 "build-args": [
                     "--share=network"
-                ],
-                "env": {
-                    "CARGO_HOME": "/run/build/sickle/cargo"
-                }
+                ]
             },
             "build-commands": [
                 "cargo fetch --manifest-path Cargo.toml --verbose",
-                "cargo --offline build --release --verbose",
+                "cargo build --release --verbose",
                 "install -Dm644 ./data/sickle.svg /app/share/icons/hicolor/scalable/apps/com.github.vnuxa.sickle.svg",
                 "install -Dm644 ./data/sickle_flatpak.desktop /app/share/applications/com.github.vnuxa.sickle.desktop",
 

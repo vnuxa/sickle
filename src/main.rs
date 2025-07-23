@@ -4,9 +4,10 @@ use std::{env::home_dir, path::PathBuf, string, time::Duration};
 
 use std::os::unix::fs::MetadataExt;
 use essi_ffmpeg::FFmpeg;
+use iced::window::frames;
 use iced::{widget::{button, Column, Container, Row, Svg}, window::Settings, Alignment, Application, Background, Border, Color, ContentFit, Font, Length, Padding, Shadow, Task};
 use iced_video_player::{Position, Video, VideoPlayer};
-use iced::widget;
+use iced::{widget, Subscription};
 use rfd::FileDialog;
 use timeline::{hex_to_rgb, hex_to_rgba, Timeline};
 use toml::Table;
@@ -99,7 +100,6 @@ fn main() {
 
     app_settings.id = Some("sickle".to_string());
 
-    // let appearance =
     iced::application("sickle", update, view)
         .window(settings)
         .settings(app_settings)
@@ -110,14 +110,8 @@ fn main() {
             }
         })
         .default_font(Font::with_name(string_to_static_str("EPSON 正楷書体Ｍ".to_string())))
+        .subscription(subscription)
         .run_with(|| {
-            // let mut state = App::default();
-            // let old_file = home_dir()
-            //         .unwrap()
-            //         .join("Videos/clips/spin_big.mp4")
-            //         .canonicalize()
-            //         .unwrap();
-
             let old_file = file.unwrap();
             let uri = &url::Url::from_file_path(&old_file).unwrap();
             let video = {
@@ -144,9 +138,7 @@ fn main() {
 
                 Video::from_gst_pipeline(pipeline, video_sink, Some(text_sink)).unwrap()
             };
-            // let pipeline = format!("uridecodebin uri=\"{}\" ! videoconvert ! videoscale ! appsink name=iced_video caps=video/x-raw,format=RGBA,pixel-aspect-ratio=1/1,width=720,height=1280", uri.as_str());
-            // let video = Video::from_pipeline(pipeline, None);
-            // let video = Video::new().unwrap();
+
             let state = App {
 
                 video_length: video.duration().as_secs_f32(),
@@ -158,6 +150,11 @@ fn main() {
                 pressed_start: false,
                 pressed_end: false,
                 pressed_anywhere: false,
+                position_loop: false,
+                start_loop: false,
+                end_loop: false,
+                moving: false,
+                position_value: 0.0,
                 video_time: time::Duration::seconds_f32(video.duration().as_secs_f32()),
                 video,
                 old_file,
@@ -180,6 +177,13 @@ struct App {
     start: f32,
     end: f32,
 
+    position_loop: bool,
+    start_loop: bool,
+    end_loop: bool,
+    moving: bool,
+
+    position_value: f32,
+
     pressed_start: bool,
     pressed_end: bool,
 
@@ -196,8 +200,13 @@ enum Messages {
     Pressed(bool),
     UpdateStart(f32),
     UpdateEnd(f32),
+    UpdateMoving(bool),
+    TickStart,
+    TickEnd,
+    TickTime,
     SetTime(f32),
     MouseMove(f32),
+    PositionalUpdate(f32),
     RestartStream,
     Export
 }
@@ -227,6 +236,11 @@ impl Default for App {
             mouse_position: 0.0,
             mouse_content: String::new(),
             start: 0.0,
+            position_loop: false,
+            start_loop: false,
+            end_loop: false,
+            position_value: 0.0,
+            moving: false,
             old_file: PathBuf::new(),
             end:  video.duration().as_secs_f32() / 2.0,
             pressed_start: false,
@@ -323,6 +337,7 @@ fn view(app: &App) -> iced::Element<Messages> {
                         toggle_start: Box::new(|position| Messages::PressedStart(position)),
                         toggle_end: Box::new(|position| Messages::PressedEnd(position)),
                         set_time: Box::new(|position| Messages::SetTime(position)),
+                        positional_update: Box::new(|position| Messages::PositionalUpdate(position)),
                         cursor_position: app.cursor_position,
                         pressed_anywhere: app.pressed_anywhere,
                         play_pause: Box::new(|| Messages::PlayPause),
@@ -395,6 +410,21 @@ fn update(app: &mut App, message: Messages)  {
             app.cursor_position = position;
 
         }
+        Messages::TickStart => {
+            let position = app.position_value;
+            app.mouse_position = position * app.video_length;
+            let time = time::Duration::seconds_f32(app.video_length * position);
+            app.mouse_content = format!(
+                "{:02}:{:02}.{:03.0}",
+                time.whole_minutes(),
+                time.whole_seconds() - time.whole_minutes() * 60,
+                (time.as_seconds_f32() - time.whole_seconds() as f32) * 1000.0,
+            );
+            app.start = position;
+            app.video.seek(Position::Time(Duration::from_secs_f32((position * 1000.0).round() / 1000.0)), false).unwrap();
+            app.cursor_position = position;
+            app.moving = false;
+        }
         Messages::UpdateEnd(position) => {
             app.mouse_position = position * app.video_length;
             let time = time::Duration::seconds_f32(app.video_length * position);
@@ -411,6 +441,24 @@ fn update(app: &mut App, message: Messages)  {
             app.cursor_position = position;
 
         }
+        Messages::TickEnd => {
+            let position = app.position_value;
+
+            app.mouse_position = position * app.video_length;
+            let time = time::Duration::seconds_f32(app.video_length * position);
+            app.mouse_content = format!(
+                "{:02}:{:02}.{:03.0}",
+                time.whole_minutes(),
+                time.whole_seconds() - time.whole_minutes() * 60,
+                (time.as_seconds_f32() - time.whole_seconds() as f32) * 1000.0,
+            );
+
+            app.end = position;
+            app.video.seek(Position::Time(Duration::from_secs_f32((position * 1000.0).round() / 1000.0)), false).unwrap();
+            // app.video.seek(Position::Time(Duration::from_secs_f32(position)), true);
+            app.cursor_position = position;
+            app.moving = false;
+        }
         Messages::PressedStart(value) => {
             app.pressed_start = value;
         }
@@ -420,7 +468,12 @@ fn update(app: &mut App, message: Messages)  {
         Messages::Pressed(value) => {
             app.pressed_anywhere = value;
         }
+        Messages::PositionalUpdate(value) => {
+            app.moving = true;
+            app.position_value = value;
+        }
         Messages::SetTime(value) => {
+            app.position_value = value;
             let time = time::Duration::seconds_f32(app.video_length * value);
             app.mouse_content = format!(
                 "{:02}:{:02}.{:03.0}",
@@ -434,6 +487,23 @@ fn update(app: &mut App, message: Messages)  {
             app.cursor_position = value;
 
         }
+        Messages::TickTime => {
+            let value = app.position_value;
+
+            let time = time::Duration::seconds_f32(app.video_length * value);
+            app.mouse_content = format!(
+                "{:02}:{:02}.{:03.0}",
+                time.whole_minutes(),
+                time.whole_seconds() - time.whole_minutes() * 60,
+                (time.as_seconds_f32() - time.whole_seconds() as f32) * 1000.0,
+            );
+            app.mouse_position = value * app.video_length;
+
+            app.video.seek(Position::Time(Duration::from_secs_f32((value * 1000.0).round() / 1000.0)), false).unwrap();
+            app.cursor_position = value;
+
+            app.moving = false;
+        }
         Messages::MouseMove(value) => {
             app.mouse_position = value;
             let time = time::Duration::seconds_f32(app.video_length * value);
@@ -443,6 +513,9 @@ fn update(app: &mut App, message: Messages)  {
                 time.whole_seconds() - time.whole_minutes() * 60,
                 (time.as_seconds_f32() - time.whole_seconds() as f32) * 1000.0,
             );
+        }
+        Messages::UpdateMoving(value) => {
+            app.moving = value;
         }
         Messages::RestartStream => {
         }
@@ -590,4 +663,19 @@ fn update(app: &mut App, message: Messages)  {
             }
         }
     }
+}
+
+fn subscription(state: &App) -> Subscription<Messages> {
+    if state.moving {
+        if state.pressed_start {
+            return frames().map(|test| Messages::TickStart);
+        }
+        if state.pressed_anywhere {
+            return frames().map(|_| Messages::TickTime);
+        }
+        if state.pressed_end {
+            return frames().map(|_| Messages::TickEnd);
+        }
+    }
+    Subscription::none()
 }
