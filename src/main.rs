@@ -1,15 +1,19 @@
-use std::io::Read;
+use std::io::{BufReader, Read, Seek};
 use std::str::FromStr;
+use std::sync::{Arc, Mutex};
 use std::{env::home_dir, path::PathBuf, string, time::Duration};
 
 use std::os::unix::fs::MetadataExt;
 use essi_ffmpeg::FFmpeg;
 use freedesktop_icons::lookup;
 use iced::advanced::graphics::image::image_rs::ImageFormat;
+use iced::futures::stream;
 use iced::window::frames;
+use iced::window::settings::PlatformSpecific;
 use iced::{widget::{button, Column, Container, Row, Svg}, window::Settings, Alignment, Application, Background, Border, Color, ContentFit, Font, Length, Padding, Shadow, Task};
 use iced_video_player::{Position, Video, VideoPlayer};
 use iced::{widget, Subscription};
+use notify_rust::Notification;
 use rfd::FileDialog;
 use timeline::{hex_to_rgb, hex_to_rgba, Timeline};
 use toml::Table;
@@ -38,6 +42,7 @@ pub struct Config {
     timeline_color: String,
     hover_background: String,
     font: String,
+    audio: Option<String>,
 
 }
 
@@ -49,6 +54,7 @@ impl Default for Config {
             timeline_color: "#829f62".to_string(),
             hover_background: "#0E0E0E".to_string(),
             font: "EPSON 正楷書体Ｍ".to_string(),
+            audio: None
         }
     }
 }
@@ -80,6 +86,9 @@ fn main() {
         if let Some(font) = toml.get("font") {
             config.font = font.as_str().unwrap().to_string();
         }
+        if let Some(audio) = toml.get("notification_audio") {
+            config.audio = Some(audio.as_str().unwrap().to_string());
+        }
     }
 
     let mut file = None;
@@ -101,15 +110,21 @@ fn main() {
     }
     let mut settings = Settings::default();
 
+    let mut is_flatpak = false;
     let mut icon = lookup("sickle")
         .with_size(32)
         .find();
     if icon.is_none() {
+        is_flatpak = true;
         icon = lookup("com.github.vnuxa.sickle")
             .with_size(32)
             .find();
     }
     settings.icon = Some(iced::window::icon::from_file(icon.expect("Couldnt find icon")).unwrap());
+    settings.platform_specific = PlatformSpecific {
+        application_id: "sickle".to_string(),
+        override_redirect: false,
+    };
 
     let mut app_settings = iced::Settings::default();
 
@@ -126,7 +141,7 @@ fn main() {
         })
         .default_font(Font::with_name(string_to_static_str(config.font.clone())))
         .subscription(subscription)
-        .run_with(|| {
+        .run_with(move || {
             let old_file = file.unwrap();
             let uri = &url::Url::from_file_path(&old_file).unwrap();
             let video = {
@@ -166,6 +181,7 @@ fn main() {
                 pressed_end: false,
                 pressed_anywhere: false,
                 position_loop: false,
+                processing: false,
                 start_loop: false,
                 end_loop: false,
                 moving: false,
@@ -177,6 +193,7 @@ fn main() {
                 video,
                 old_file,
                 config,
+                is_flatpak
             };
             (state, Task::none())
         });
@@ -206,10 +223,12 @@ struct App {
     pressed_end: bool,
 
     pressed_anywhere: bool,
+    is_flatpak: bool,
 
     play_icon: String,
     pause_icon: String,
     trim_icon: String,
+    processing: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -229,6 +248,7 @@ enum Messages {
     MouseMove(f32),
     PositionalUpdate(f32),
     RestartStream,
+    ProcessingDone,
     Export
 }
 
@@ -260,6 +280,7 @@ impl Default for App {
             position_loop: false,
             start_loop: false,
             end_loop: false,
+            is_flatpak: false,
             position_value: 0.0,
             moving: false,
             old_file: PathBuf::new(),
@@ -272,6 +293,7 @@ impl Default for App {
             play_icon: lookup("sickle-play-symbolic").find().unwrap().to_str().unwrap().to_string(),
             pause_icon: lookup("sickle-pause-symbolic").find().unwrap().to_str().unwrap().to_string(),
             trim_icon: lookup("sickle-scissors-symbolic").find().unwrap().to_str().unwrap().to_string(),
+            processing: false,
             video,
 
         }
@@ -369,6 +391,7 @@ fn view(app: &App) -> iced::Element<Messages> {
                         play_pause: Box::new(|| Messages::PlayPause),
 
                         restart: Box::new(|| Messages::RestartStream),
+                        is_processing: app.processing
                     }
                 )
                 .push(
@@ -547,55 +570,123 @@ fn update(app: &mut App, message: Messages)  {
         }
         Messages::Export => {
             app.video.set_paused(true);
+            app.processing = true;
             // let _ = FFmpeg::auto_download();
             // if let Some((handle, mut progress)) = FFmpeg::auto_download() {
             //     handle.unwrap().unwrap();
             // } else {
             //     println!("FFmpeg is downloaded, using existing installation");
             // }
+        }
+        Messages::ProcessingDone => {
+            app.processing = false;
+            Notification::new()
+                .summary("sickle")
+                .body("Video clip has been processed")
+                .icon(if app.is_flatpak { "com.github.vnuxa.sickle" } else { "sickle" })
+                .show();
+            if let Some(audio) = &app.config.audio {
+
+                let stream_handle = rodio::OutputStreamBuilder::open_default_stream().unwrap();
+                let mixer = stream_handle.mixer();
+
+                let mut path = PathBuf::from("/");
+                for text in audio.split("/") {
+                    if text == "~" {
+                        path.push(home_dir().unwrap().to_str().unwrap());
+                    } else {
+                        path.push(text);
+                    }
+                }
+
+
+                let file = File::open(path).unwrap();
+                println!("file is {:?}", file);
+                // let sink = rodio::play(mixer, BufReader::new(file.unwrap())).unwrap();
+
+                let sink = rodio::Sink::connect_new(stream_handle.mixer());
+
+
+                sink.append(rodio::Decoder::try_from(file).unwrap());
+
+                sink.play();
+                sink.set_volume(0.4);
+                sink.sleep_until_end();
+            }
+        }
+
+    }
+
+}
+
+fn subscription(state: &App) -> Subscription<Messages> {
+    let mut subscriptions = Vec::new();
+    if state.moving {
+        if state.pressed_start {
+            subscriptions.push(frames().map(|test| Messages::TickStart));
+        } else if state.pressed_anywhere {
+            subscriptions.push(frames().map(|_| Messages::TickTime));
+        } else if state.pressed_end {
+            subscriptions.push(frames().map(|_| Messages::TickEnd));
+        }
+    }
+
+    if state.processing {
+        subscriptions.push(ffmpeg_process(state.old_file.clone(), state.start.clone(), state.end.clone()));
+    }
+
+    if subscriptions.len() > 0 {
+        return Subscription::batch(subscriptions);
+    }
+    Subscription::none()
+}
+
+fn ffmpeg_process(old_file: PathBuf, start: f32, end: f32) -> Subscription<Messages> {
+    Subscription::run_with_id(
+        5,
+        iced::stream::channel(100, move |mut output| async move {
             let file = FileDialog::new()
-                .set_file_name(app.old_file.file_name().unwrap().to_str().unwrap())
-                .set_directory(app.old_file.parent().unwrap())
+                .set_file_name(old_file.file_name().unwrap().to_str().unwrap())
+                .set_directory(old_file.parent().unwrap())
                 .save_file();
 
-            // println!("the thign: {:?}", unsafe { make_static_str(&app.start.to_string()) });
+            // println!("the thign: {:?}", unsafe { make_static_str(&app_arc.start.to_string()) });
             if let Some(file) = file {
-                println!("got file path {:?}", file);
-                println!("start is {:?}",
-                        string_to_static_str(app.start.to_string())
-);
+                // println!("start is {:?}",
+                //     string_to_static_str(app_arc.start.to_string())
+                // );
                 let mut ffmpeg = FFmpeg::new()
                     .stderr(std::process::Stdio::inherit())
-                    .input_with_file(app.old_file.clone()).done()
+                    .input_with_file(old_file.clone()).done()
                     .args([
                         "-ss",
-                        string_to_static_str(app.start.to_string())
+                        string_to_static_str(start.to_string())
                     ])
                     .args([
                         "-t",
-                        string_to_static_str((app.end - app.start).to_string())
+                        string_to_static_str((end - start).to_string())
                     ]);
 
-                let size = app.old_file.metadata().unwrap().size();
+                let size = old_file.metadata().unwrap().size();
                 // if old file is already bigger than 8 mb, try using some compression techniques
                 if size > 10000000 {
-                    let video_bitrate = ((1400.0) / ((app.end - app.start) / 60.0)) * 0.93;
+                    let video_bitrate = ((1400.0) / ((end - start) / 60.0)) * 0.93;
                     let audio_bitrate = video_bitrate * 0.1;
                     // let audio_bitrate = (( 318000.0 / ( 1.0 + std::f32::consts::E.powf(-0.0000014 * video_bitrate * 60.0) ) ) - 154000.0) / 2.0;
                     println!("VIDEO BITRATE SHOULD BE {:?}", video_bitrate);
                     println!("AUDIO BTIRATE SHOULD BE {:?} which would make video bitrate: {:?}", audio_bitrate, video_bitrate - audio_bitrate);
-                    // app.old_file.metadata().unwrap().audi
+                    // app_arc.old_file.metadata().unwrap().audi
 
                     let mut ffmpeg_2 = FFmpeg::new()
                         .stderr(std::process::Stdio::inherit())
-                        .input_with_file(app.old_file.clone()).done()
+                        .input_with_file(old_file.clone()).done()
                         .args([
                             "-ss",
-                            string_to_static_str(app.start.to_string())
+                            string_to_static_str(start.to_string())
                         ])
                         .args([
                             "-t",
-                            string_to_static_str((app.end - app.start).to_string())
+                            string_to_static_str((end - start).to_string())
                         ])
                         .arg("-an")
                         // .output_as_file(file.clone())
@@ -639,7 +730,7 @@ fn update(app: &mut App, message: Messages)  {
                     // ff
                     // println!("builder is {:?} ", ffmpeg_2.inspect_args(f));
 
-                        ffmpeg_2.start().unwrap().wait().unwrap();
+                    ffmpeg_2.start().unwrap().wait().unwrap();
                     println!("now first done!");
                     ffmpeg = ffmpeg
                         .args([
@@ -670,38 +761,27 @@ fn update(app: &mut App, message: Messages)  {
                             "-pass",
                             "1"
                         ]);
-                        // .args([
-                        //     "-passlogfile",
-                        //     "/tmp/mydummy"
-                        // ]);
+                    // .args([
+                    //     "-passlogfile",
+                    //     "/tmp/mydummy"
+                    // ]);
 
                 }
 
                 ffmpeg = ffmpeg.output_as_file(file.clone()).done();
-                println!("file size is {:?}", app.old_file.metadata().unwrap().size());
-            // println!("file is of size {:?}", ::new(source).into_iter().map(|item| item.metadata().unwrap().len()));
+                println!("file size is {:?}", old_file.metadata().unwrap().size());
+                // println!("file is of size {:?}", ::new(source).into_iter().map(|item| item.metadata().unwrap().len()));
                 // if  {
                 //
                 // }
 
 
                 ffmpeg.start().unwrap().wait().unwrap();
+                output
+                    .try_send(Messages::ProcessingDone)
+                    .expect("failed to send ffmpeg processing done event");
             }
-        }
-    }
-}
 
-fn subscription(state: &App) -> Subscription<Messages> {
-    if state.moving {
-        if state.pressed_start {
-            return frames().map(|test| Messages::TickStart);
-        }
-        if state.pressed_anywhere {
-            return frames().map(|_| Messages::TickTime);
-        }
-        if state.pressed_end {
-            return frames().map(|_| Messages::TickEnd);
-        }
-    }
-    Subscription::none()
+        })
+    )
 }

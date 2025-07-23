@@ -10,7 +10,7 @@ gstreamer = "0.23.7"
 gstreamer-app = "0.23.5" # appsink
 gstreamer-base = "0.23.5" # basesrc
 iced_video_player = {git = "https://github.com/jazzfool/iced_video_player.git", branch="master"}
-iced = { version = "0.13.1", features = ["image", "advanced", "wgpu", "svg"] }
+iced = { version = "0.13.1", features = ["image", "advanced", "wgpu", "svg", "smol"] }
 url = "2.5.4"
 rfd = "0.15.3"
 essi-ffmpeg = { git = "https://github.com/MrAdhit/essi-ffmpeg" }
@@ -19,3 +19,6 @@ clap = { version = "4.5.40", features = ["derive"] }
 # toml = "0.8.23"
 toml = {git = "https://github.com/toml-rs/toml.git", branch="main", features = [ "parse" ]}
 freedesktop-icons = "0.4.0"
+smol = "2.0.2"
+rodio = "0.21.1"
+notify-rust = "4.11.7"

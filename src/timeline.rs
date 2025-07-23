@@ -57,6 +57,7 @@ pub struct Timeline<Message> {
     pub mouse: f32,
     pub mouse_content: String,
     pub mouse_move: Box<dyn Fn(f32) -> Message>,
+    pub is_processing: bool,
 }
 
 pub fn hex_to_rgb(hex: &str) -> Color {
@@ -109,12 +110,14 @@ impl<Message, Theme, Renderer: iced::advanced::Renderer + iced::advanced::text::
         let start_portion = view_size.width / (self.duration / self.start);
         let end_portion = view_size.width / (self.duration / self.end);
         let mut handle_start_position = view_position;
-        handle_start_position.x = view_position.x + start_portion;
+        handle_start_position.x = view_position.x + start_portion + 2.5;
         let mut handle_end_position = view_position;
-        handle_end_position.x = view_position.x + end_portion - 7.0;
+        handle_end_position.x = view_position.x + end_portion - 9.5;
+        handle_end_position.y += 2.0;
+        handle_start_position.y += 2.0;
 
         let timeline = renderer.fill_quad(renderer::Quad {
-            bounds: Rectangle::new(handle_start_position, Size { width: end_portion - start_portion, height: 60.0 }),
+            bounds: Rectangle::new(handle_start_position, Size { width: end_portion - start_portion - 4.5, height: 60.0 }),
             border: Border::default(),
             shadow: Shadow::default()
         },
@@ -129,7 +132,7 @@ impl<Message, Theme, Renderer: iced::advanced::Renderer + iced::advanced::text::
         );
 
         let handle_start = renderer.fill_quad(renderer::Quad {
-            bounds: Rectangle::new(handle_start_position, Size { width: 7.0, height: 60.0 }),
+            bounds: Rectangle::new(handle_start_position, Size { width: 7.0, height: 56.0 }),
             border: Border::default()
                 .color(Color::from_rgb(0.0, 0.0, 0.0))
                 .width(1.0),
@@ -142,7 +145,7 @@ impl<Message, Theme, Renderer: iced::advanced::Renderer + iced::advanced::text::
         );
 
         let handle_end = renderer.fill_quad(renderer::Quad {
-            bounds: Rectangle::new(handle_end_position, Size { width: 7.0, height: 60.0 }),
+            bounds: Rectangle::new(handle_end_position, Size { width: 7.0, height: 56.0 }),
             border: Border::default()
                 .color(Color::from_rgb(0.0, 0.0, 0.0))
                 .width(1.0),
@@ -214,6 +217,62 @@ impl<Message, Theme, Renderer: iced::advanced::Renderer + iced::advanced::text::
         }
 
 
+        if self.is_processing {
+            let bounds = Rectangle::new(Point { x: 0.0, y: 0.0 }, Size { width: viewport.width, height: viewport.height });
+            renderer.with_layer(bounds, |renderer| {
+                renderer.fill_quad(renderer::Quad {
+                    // bounds: Rectangle::new(Point { x: 0.0, y: 0.0 }, Size { width: viewport.width, height: viewport.height }),
+                    bounds: *viewport,
+                    border: Border::default(),
+                    shadow: Shadow::default()
+                },
+                    // Background::Color(Color::from_rgba8(255, 255, 255, 0.25))
+                    Background::Color(
+                        hex_to_rgba(&self.config.hover_background, 0.75)
+                        // Color::from_rgba8(255, 255, 255, 1.0)
+                    )
+                );
+                renderer.fill_quad(renderer::Quad {
+                    // bounds: Rectangle::new(Point { x: 0.0, y: 0.0 }, Size { width: viewport.width, height: viewport.height }),
+                    bounds: Rectangle::new(
+                        Point { x: (viewport.width / 2.0) - 105.0, y: (viewport.height / 2.0) - 30.0 },
+                        Size { width: 210.0, height: 60.0 }
+                    ),
+                    border: Border::default().rounded(10.0),
+                    shadow: Shadow::default()
+                },
+                    // Background::Color(Color::from_rgba8(255, 255, 255, 0.25))
+                    Background::Color(
+                        hex_to_rgba(&self.config.hover_background, 1.0)
+                        // Color::from_rgba8(255, 255, 255, 1.0)
+                    )
+                );
+                // let bounds = Rectangle::new(
+                //     Point { x: (viewport.width / 2.0) - 210.0, y: (viewport.height / 2.0) - 30.0 },
+                //     Size { width: 420.0, height: 60.0 }
+                // );
+                let text = renderer.fill_text(
+                    Text {
+                        wrapping: core::text::Wrapping::None,
+                        shaping: core::text::Shaping::Basic,
+                        horizontal_alignment: Horizontal::Center,
+                        vertical_alignment: Vertical::Center,
+                        font: Font::default(),
+                        size: iced::Pixels(25.0),
+                        line_height: core::text::LineHeight::Absolute(iced::Pixels(10.0)),
+                        bounds: Size { width: 360.0, height: 50.0 },
+                        content: "Processing".to_string(),
+                    },
+                    Point { x: (viewport.width / 2.0), y: (viewport.height / 2.0) },
+                    // Color::from_rgba8(178, 135, 161, 1.0),
+                    hex_to_rgb(&self.config.main_color),
+                    bounds,
+
+                );
+            });
+
+
+        }
 
     }
     fn size(&self) -> iced::Size<Length> {
