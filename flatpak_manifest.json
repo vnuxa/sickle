@@ -34,6 +34,7 @@
                 "cargo fetch --manifest-path Cargo.toml --verbose",
                 "cargo build --release --verbose",
                 "install -Dm644 ./data/sickle.svg /app/share/icons/hicolor/scalable/apps/com.github.vnuxa.sickle.svg",
+                "install -Dm644 ./data/sickle.png /app/share/icons/hicolor/32x32/apps/com.github.vnuxa.sickle.png",
                 "install -Dm644 ./data/sickle_flatpak.desktop /app/share/applications/com.github.vnuxa.sickle.desktop",
                 "install -Dm644 ./data/sickle-pause-symbolic.svg /app/share/icons/hicolor/scalable/actions/sickle-pause-symbolic.svg",
                 "install -Dm644 ./data/sickle-play-symbolic.svg /app/share/icons/hicolor/scalable/actions/sickle-play-symbolic.svg",

@@ -5,6 +5,7 @@ use std::{env::home_dir, path::PathBuf, string, time::Duration};
 use std::os::unix::fs::MetadataExt;
 use essi_ffmpeg::FFmpeg;
 use freedesktop_icons::lookup;
+use iced::advanced::graphics::image::image_rs::ImageFormat;
 use iced::window::frames;
 use iced::{widget::{button, Column, Container, Row, Svg}, window::Settings, Alignment, Application, Background, Border, Color, ContentFit, Font, Length, Padding, Shadow, Task};
 use iced_video_player::{Position, Video, VideoPlayer};
@@ -100,7 +101,15 @@ fn main() {
     }
     let mut settings = Settings::default();
 
-    settings.decorations = false;
+    let mut icon = lookup("sickle")
+        .with_size(32)
+        .find();
+    if icon.is_none() {
+        icon = lookup("com.github.vnuxa.sickle")
+            .with_size(32)
+            .find();
+    }
+    settings.icon = Some(iced::window::icon::from_file(icon.expect("Couldnt find icon")).unwrap());
 
     let mut app_settings = iced::Settings::default();
 

@@ -83,6 +83,7 @@
           ''
             cd ${self}
             install -Dm644 ../data/sickle.svg $out/share/icons/hicolor/scalable/apps/sickle.svg
+            install -Dm644 ../data/sickle.png $out/share/icons/hicolor/32x32/apps/sickle.svg
             install -Dm644 ../data/sickle.desktop $out/share/applications/sickle.desktop
             install -Dm644 ../data/sickle-pause-symbolic.svg $out/share/icons/hicolor/scalable/actions/sickle-pause-symbolic.svg
             install -Dm644 ../data/sickle-play-symbolic.svg $out/share/icons/hicolor/scalable/actions/sickle-play-symbolic.svg
