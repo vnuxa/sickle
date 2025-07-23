@@ -480,7 +480,7 @@ fn update(app: &mut App, message: Messages)  {
                 let size = app.old_file.metadata().unwrap().size();
                 // if old file is already bigger than 8 mb, try using some compression techniques
                 if size > 10000000 {
-                    let video_bitrate = ((1450.0) / ((app.end - app.start) / 60.0)) * 0.93;
+                    let video_bitrate = ((1400.0) / ((app.end - app.start) / 60.0)) * 0.93;
                     let audio_bitrate = video_bitrate * 0.1;
                     // let audio_bitrate = (( 318000.0 / ( 1.0 + std::f32::consts::E.powf(-0.0000014 * video_bitrate * 60.0) ) ) - 154000.0) / 2.0;
                     println!("VIDEO BITRATE SHOULD BE {:?}", video_bitrate);

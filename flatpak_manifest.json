@@ -1,0 +1,113 @@
+{
+    "$schema": "https://raw.githubusercontent.com/flatpak/flatpak-builder/refs/heads/main/data/flatpak-manifest.schema.json",
+
+    "id": "com.github.vnuxa.sickle",
+    "runtime": "org.freedesktop.Platform",
+    "runtime-version": "24.08",
+    "sdk": "org.freedesktop.Sdk",
+    "sdk-extensions" : [
+        "org.freedesktop.Sdk.Extension.rust-stable"
+    ],
+    "build-options": {
+        "append-path" : "/usr/lib/sdk/rust-stable/bin"
+    },
+    "finish-args": [
+        "--device=dri",
+        "--share=ipc",
+        "--socket=fallback-x11",
+        "--socket=pulseaudio",
+        "--socket=wayland",
+        "--filesystem=home",
+        "--env=GST_PLUGIN_PATH=/usr/lib/x86_64-linux-gnu/gstreamer-1.0/:/usr/lib/aarch64-linux-gnu/gstreamer-1.0/:/usr/lib/aarch64-linux-gnu/gstreamer-plugins-base/"
+    ],
+    "command": "sickle",
+    "modules": [
+        {
+            "name": "sickle",
+            "buildsystem": "simple",
+            "build-options": {
+                "build-args": [
+                    "--share=network"
+                ],
+                "env": {
+                    "CARGO_HOME": "/run/build/sickle/cargo"
+                }
+            },
+            "build-commands": [
+                "cargo fetch --manifest-path Cargo.toml --verbose",
+                "cargo --offline build --release --verbose",
+                "install -Dm644 ./data/sickle.svg /app/share/icons/hicolor/scalable/apps/com.github.vnuxa.sickle.svg",
+                "install -Dm644 ./data/sickle_flatpak.desktop /app/share/applications/com.github.vnuxa.sickle.desktop",
+
+                "install -Dm755 ./target/release/sickle -t /app/bin/"
+            ],
+            "sources": [
+                {
+                    "type": "git",
+                    "url": "https://github.com/vnuxa/sickle.git"
+                }
+            ]
+        },
+        {
+            "name": "x264",
+            "config-opts": [
+                "--disable-cli",
+                "--enable-shared"
+            ],
+            "sources": [
+                {
+                    "type": "git",
+                    "url": "https://code.videolan.org/videolan/x264.git",
+                    "commit": "5db6aa6cab1b146e07b60cc1736a01f21da01154"
+                }
+            ]
+        },
+        {
+            "name": "x265",
+            "buildsystem": "cmake-ninja",
+            "builddir": true,
+            "subdir": "source",
+            "config-opts": [
+                "-DCMAKE_BUILD_TYPE=Release",
+                "-DENABLE_CLI=OFF"
+            ],
+            "sources": [
+                {
+                    "type": "archive",
+                    "url": "https://deb.debian.org/debian/pool/main/x/x265/x265_3.5.orig.tar.gz",
+                    "sha256": "e70a3335cacacbba0b3a20ec6fecd6783932288ebc8163ad74bcc9606477cae8",
+                    "x-checker-data": {
+                        "type": "anitya",
+                        "project-id": 7275,
+                        "stable-only": true,
+                        "url-template": "https://deb.debian.org/debian/pool/main/x/x265/x265_$version.orig.tar.gz"
+                    }
+                }
+            ]
+        },
+        {
+            "name": "ffmpeg",
+            "config-opts": [
+                "--enable-gpl",
+                "--enable-libx264",
+                "--enable-libx265"
+            ],
+            "cleanup": [
+                "/share/ffmpeg/examples"
+            ],
+            "sources": [
+                {
+                    "type": "archive",
+                    "url": "https://www.ffmpeg.org/releases/ffmpeg-7.1.1.tar.xz",
+                    "sha256": "733984395e0dbbe5c046abda2dc49a5544e7e0e1e2366bba849222ae9e3a03b1",
+                    "x-checker-data": {
+                        "type": "anitya",
+                        "project-id": 5405,
+                        "stable-only": true,
+                        "url-template": "https://www.ffmpeg.org/releases/ffmpeg-$version.tar.xz"
+                    }
+                }
+            ]
+        }
+    ]
+}
