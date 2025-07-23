@@ -36,6 +36,7 @@ pub struct Config {
     background_color: String,
     timeline_color: String,
     hover_background: String,
+    font: String,
 
 }
 
@@ -46,6 +47,7 @@ impl Default for Config {
             background_color: "#111111".to_string(),
             timeline_color: "#829f62".to_string(),
             hover_background: "#0E0E0E".to_string(),
+            font: "EPSON 正楷書体Ｍ".to_string(),
         }
     }
 }
@@ -73,6 +75,9 @@ fn main() {
         }
         if let Some(color) = toml.get("hover_background") {
             config.hover_background = color.as_str().unwrap().to_string();
+        }
+        if let Some(font) = toml.get("font") {
+            config.font = font.as_str().unwrap().to_string();
         }
     }
 
@@ -110,7 +115,7 @@ fn main() {
                 text_color: Color::from_rgb(1.0, 1.0, 1.0)
             }
         })
-        .default_font(Font::with_name(string_to_static_str("EPSON 正楷書体Ｍ".to_string())))
+        .default_font(Font::with_name(string_to_static_str(config.font.clone())))
         .subscription(subscription)
         .run_with(|| {
             let old_file = file.unwrap();
