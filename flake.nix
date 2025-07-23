@@ -81,8 +81,13 @@
         postInstall =
           #bash
           ''
-            install -Dm644 ../data/sickle.desktop $out/share/applications/
-            install -Dm644 ../data/sickle.desktop $out/share/icons/hicolor/scalable/apps/
+            cd ${self}
+            install -Dm644 ../data/sickle.svg $out/share/icons/hicolor/scalable/apps/sickle.svg
+            install -Dm644 ../data/sickle.desktop $out/share/applications/sickle.desktop
+            install -Dm644 ../data/sickle-pause-symbolic.svg $out/share/icons/hicolor/scalable/actions/sickle-pause-symbolic.svg
+            install -Dm644 ../data/sickle-play-symbolic.svg $out/share/icons/hicolor/scalable/actions/sickle-play-symbolic.svg
+            install -Dm644 ../data/sickle-scissors-symbolic.svg $out/share/icons/hicolor/scalable/actions/sickle-scissors-symbolic.svg
+
                     wrapProgram "$out/bin/sickle"\
                       --prefix CARGO_MANIFEST_DIR : "${self}"\
                       --prefix LD_LIBRARY_PATH : ${

@@ -4,6 +4,7 @@ use std::{env::home_dir, path::PathBuf, string, time::Duration};
 
 use std::os::unix::fs::MetadataExt;
 use essi_ffmpeg::FFmpeg;
+use freedesktop_icons::lookup;
 use iced::window::frames;
 use iced::{widget::{button, Column, Container, Row, Svg}, window::Settings, Alignment, Application, Background, Border, Color, ContentFit, Font, Length, Padding, Shadow, Task};
 use iced_video_player::{Position, Video, VideoPlayer};
@@ -154,6 +155,9 @@ fn main() {
                 start_loop: false,
                 end_loop: false,
                 moving: false,
+                play_icon: lookup("sickle-play-symbolic").find().unwrap().to_str().unwrap().to_string(),
+                pause_icon: lookup("sickle-pause-symbolic").find().unwrap().to_str().unwrap().to_string(),
+                trim_icon: lookup("sickle-scissors-symbolic").find().unwrap().to_str().unwrap().to_string(),
                 position_value: 0.0,
                 video_time: time::Duration::seconds_f32(video.duration().as_secs_f32()),
                 video,
@@ -189,6 +193,9 @@ struct App {
 
     pressed_anywhere: bool,
 
+    play_icon: String,
+    pause_icon: String,
+    trim_icon: String,
 }
 
 #[derive(Debug, Clone)]
@@ -248,6 +255,9 @@ impl Default for App {
             pressed_anywhere: false,
             video_time: time::Duration::seconds_f32(video.duration().as_secs_f32()),
             config: Config::default(),
+            play_icon: lookup("sickle-play-symbolic").find().unwrap().to_str().unwrap().to_string(),
+            pause_icon: lookup("sickle-pause-symbolic").find().unwrap().to_str().unwrap().to_string(),
+            trim_icon: lookup("sickle-scissors-symbolic").find().unwrap().to_str().unwrap().to_string(),
             video,
 
         }
@@ -278,9 +288,11 @@ fn view(app: &App) -> iced::Element<Messages> {
                 .push(
                     button::Button::new(
                         Svg::from_path( if app.video.paused() {
-                            "data/play-symbolic.svg"
+                            &app.play_icon
+                            // "data/play-symbolic.svg"
                         } else {
-                            "data/pause-symbolic.svg"
+                            &app.pause_icon
+                            // "data/pause-symbolic.svg"
                         })
                             .width(Length::Fixed(50.0))
                             .height(Length::Fixed(50.0))
@@ -347,7 +359,7 @@ fn view(app: &App) -> iced::Element<Messages> {
                 )
                 .push(
                     button::Button::new(
-                        Svg::from_path("data/scissors-symbolic.svg")
+                        Svg::from_path(&app.trim_icon)
                             .width(Length::Fixed(50.0))
                             .height(Length::Fixed(50.0))
                             // .width(Length::Fixed(20.0))
